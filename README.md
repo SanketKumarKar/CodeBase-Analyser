@@ -28,94 +28,105 @@ Qdrant                        Neo4j AuraDB
  │                              │
  └──────────────┬───────────────┘
                 ↓
-          Retrieval Layer
-                ↓
-       Mem0 Cloud (memory)
-                ↓
-      LangGraph Orchestrator
-                ↓
-       gemma4 via Ollama
-                ↓
-          Final Response
-```
+# Codebase Intelligence Agent 🧠
 
-**Backend:** FastAPI · LangGraph · Qdrant · Neo4j AuraDB · Mem0 · Redis · PostgreSQL · Celery  
-**Frontend:** Next.js 14 · TypeScript · TailwindCSS · React Flow · Monaco Editor · Socket.IO  
-**LLM:** `gemma4:latest` via Ollama (local, free)  
-**Embeddings:** `qwen3-embedding:4b` via Ollama (local, free, dim=2560)
+A hybrid-RAG system that allows developers to upload GitHub repositories and ask natural-language questions about architecture, dependencies, and bugs.
 
----
+This system fuses three retrieval modes before generating an answer:
+1. **Vector Semantic Search** (Qdrant)
+2. **Graph Relationship Traversal** (Neo4j)
+3. **Persistent Conversational Memory** (Mem0)
 
-## Prerequisites
+## 🎯 Current Status
 
-| Tool | Version | Notes |
-|---|---|---|
-| Docker Desktop | 4.x+ | Runs Qdrant, Redis, Postgres |
-| Ollama | Latest | Must have `gemma4` and `qwen3-embedding:4b` pulled |
-| Node.js | 20+ | For frontend dev |
-| Python | 3.12 | For backend dev |
+**Phase 1-3 are COMPLETE.**
 
+- ✅ **Phase 1: Foundation & Scaffold** — FastAPI backend, Next.js frontend (Three-panel UI layout), Docker Compose infrastructure.
+- ✅ **Phase 2: Repository Ingestion** — `POST /repo/upload` accepts GitHub URLs or ZIP files. Celery worker handles cloning, extraction, size validation, and metadata extraction. Live progress via polling/Socket.IO.
+- ✅ **Phase 3: Code Parsing Engine** — AST-based Python parser, Tree-sitter JS/TS parser, and coarse fallback parser. Chunks code into functions, classes, and methods.
+
+## 🛠️ Tech Stack
+
+### Infrastructure
+- **Embeddings:** `qwen3-embedding:4b` (via local Ollama)
+- **LLM:** `gemma4:latest` (via local Ollama)
+- **Vector DB:** Qdrant (Docker)
+- **Graph DB:** Neo4j AuraDB (Cloud)
+- **Memory:** Mem0 (Cloud API)
+- **Task Queue:** Celery + Redis (Docker)
+- **Database:** PostgreSQL (Docker)
+
+### Backend
+- FastAPI + Uvicorn
+- SQLAlchemy (Async)
+- structlog for structured JSON logging
+- Python AST + Tree-sitter for code parsing
+
+### Frontend
+- Next.js 14 (App Router)
+- React (TypeScript)
+- Tailwind CSS
+- Axios for API service layer
+
+## 🚀 Local Development Setup
+
+### 1. Prerequisites
+- Docker Desktop
+- Python 3.12 (via `uv`)
+- Node.js (v20+)
+- Ollama (running locally with `qwen3-embedding:4b` and `gemma4:latest` installed)
+
+### 2. Environment Variables
+Copy `.env.example` to `.env` in the root directory:
 ```bash
-# Verify Ollama models
-ollama list
-# Should show: gemma4:latest, qwen3-embedding:4b
-```
-
----
-
-## Quick Start (< 10 minutes)
-
-### 1. Clone & configure
-
-```bash
-git clone <repo-url>
-cd codebase-intelligence-agent
 cp .env.example .env
 ```
+Fill in your Neo4j AuraDB credentials and Mem0 API key.
 
-Edit `.env` and fill in:
-- `MEM0_API_KEY` — from [app.mem0.ai](https://app.mem0.ai)
-- `NEO4J_URI` — AuraDB connection URI (e.g. `neo4j+s://xxxx.databases.neo4j.io`)
-- `NEO4J_PASSWORD` — your AuraDB password
-
-### 2. Start infrastructure
-
+### 3. Start Infrastructure
 ```bash
 docker compose up qdrant redis postgres -d
 ```
 
-### 3. Start backend
-
+### 4. Start Backend
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
+uv venv .venv --python 3.12
+.venv\Scripts\activate
+uv pip install -r requirements.txt
 uvicorn main:socket_app --reload
 ```
 
-### 4. Start Celery worker (separate terminal)
-
+### 5. Start Celery Worker
+In a new terminal window:
 ```bash
 cd backend
+.venv\Scripts\activate
 celery -A workers.celery_app worker --loglevel=info
 ```
 
-### 5. Start frontend
-
+### 6. Start Frontend
+In a new terminal window:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Visit `http://localhost:3000`.
 
-### 6. Verify
+## 🧪 Testing
 
+The backend includes a comprehensive pytest suite covering the parser, repository service, and health checks.
+
+```bash
+cd backend
+.venv\Scripts\activate
+pytest tests/ -v
 ```bash
 curl http://localhost:8000/health
 # → { "status": "ok", "services": { "qdrant": {...}, "neo4j": {...}, ... } }
 ```
 
-Open **http://localhost:3000** — you should see the three-panel UI with live service health pills in the top bar.
 
 ---
 
