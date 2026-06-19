@@ -108,7 +108,30 @@ cd backend && pytest tests/test_repo_service.py -v
 
 ---
 
-## Phase 3 — Code Parsing Engine ⏳ PENDING
+## Phase 3 — Code Parsing Engine ✅ COMPLETE
+**Date:** 2026-06-19
+
+### What was built
+| Artifact | Description |
+|---|---|
+| `backend/services/parser/chunk_schema.py` | Pydantic model (`CodeChunk`) mapping code to its AST properties (type, boundaries, decorators, imports) |
+| `backend/services/parser/python_parser.py` | Native `ast`-based chunker (no dependencies) extracting functions, classes, and methods |
+| `backend/services/parser/js_parser.py` | Tree-sitter chunker for JS/TS/TSX (gracefully falls back if C extensions fail on Windows host) |
+| `backend/services/parser/fallback_parser.py` | Coarse whole-file chunker for unsupported languages (Go, Java, Rust) and syntax errors |
+| `backend/tests/test_parser.py` | 27 unit tests running instantly without external services |
+| `frontend/lib/api.ts` | Centralized `axios` HTTP service layer |
+| `frontend/lib/types.ts` | Shared TypeScript interfaces matching backend models |
+
+### How to verify
+```bash
+# Run the test suite (covers Phase 2 + 3)
+cd backend
+.venv\Scripts\activate
+pytest tests/test_parser.py tests/test_repo_service.py -v
+```
+
+---
+
 ## Phase 4 — Embedding + Qdrant Storage ⏳ PENDING
 ## Phase 5 — Graph Construction (Neo4j) ⏳ PENDING
 ## Phase 6 — Mem0 Memory Layer ⏳ PENDING

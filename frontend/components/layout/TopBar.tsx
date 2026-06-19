@@ -2,20 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Activity, Cpu, Database, GitBranch, Server } from "lucide-react";
+import { fetchHealth } from "@/lib/api";
+import type { HealthResponse } from "@/lib/types";
 
-interface ServiceStatus {
-  status: "ok" | "error" | "loading";
-  latency_ms: number;
-  detail?: string;
-}
-
-interface HealthData {
-  status: "ok" | "error";
-  services: Record<string, ServiceStatus>;
-  version: string;
-}
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
   qdrant:   <Database  className="w-3 h-3" aria-hidden="true" />,
@@ -30,14 +19,12 @@ const SERVICE_ICONS: Record<string, React.ReactNode> = {
  * Health is polled every 30 seconds.
  */
 export default function TopBar() {
-  const [health, setHealth] = useState<HealthData | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchHealth = async () => {
+  const fetchHealthData = async () => {
     try {
-      const res = await fetch(`${API_URL}/health`, { cache: "no-store" });
-      if (!res.ok) throw new Error("non-200");
-      const data: HealthData = await res.json();
+      const data = await fetchHealth();
       setHealth(data);
     } catch {
       setHealth(null);
@@ -47,8 +34,8 @@ export default function TopBar() {
   };
 
   useEffect(() => {
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 30_000);
+    fetchHealthData();
+    const interval = setInterval(fetchHealthData, 30_000);
     return () => clearInterval(interval);
   }, []);
 

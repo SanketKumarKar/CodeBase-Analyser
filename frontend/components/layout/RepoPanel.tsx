@@ -13,27 +13,12 @@ import {
   FolderTree,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { uploadRepoByUrl, uploadRepoZip, fetchJobStatus, getErrorMessage } from "@/lib/api";
+import type { IngestionJob } from "@/lib/types";
 
-type JobStatus = "idle" | "pending" | "cloning" | "parsing" | "embedding" | "graphing" | "ready" | "failed";
+type JobMeta = IngestionJob;
 
-interface JobMeta {
-  job_id: string;
-  status: JobStatus;
-  repo_name?: string;
-  metadata?: {
-    total_files: number;
-    primary_language: string;
-    frameworks: string[];
-    languages: Record<string, number>;
-    top_level_entries: string[];
-  };
-  error_message?: string;
-  total_files?: number;
-  processed_files?: number;
-}
-
-const STATUS_LABELS: Record<JobStatus, string> = {
+const STATUS_LABELS: Record<NonNullable<JobMeta["status"]>, string> = {
   idle:      "Ready",
   pending:   "Queued…",
   cloning:   "Cloning repository…",
@@ -44,14 +29,14 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   failed:    "Failed",
 };
 
-const STATUS_PROGRESS: Record<JobStatus, number> = {
+const STATUS_PROGRESS: Record<NonNullable<JobMeta["status"]>, number> = {
   idle: 0, pending: 5, cloning: 20, parsing: 45,
   embedding: 70, graphing: 90, ready: 100, failed: 0,
 };
 
 /**
  * RepoPanel — left sidebar with upload modal and live ingestion progress.
- * Phase 2 implementation.
+ * Uses axios service layer (lib/api.ts) for all API calls.
  */
 export default function RepoPanel() {
   const [mode, setMode] = useState<"url" | "zip">("url");
@@ -68,14 +53,12 @@ export default function RepoPanel() {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API_URL}/repo/status/${jobId}`);
-        if (!res.ok) return;
-        const data: JobMeta = await res.json();
+        const data = await fetchJobStatus(jobId);
         setJob(data);
         if (data.status === "ready" || data.status === "failed") {
           clearInterval(pollRef.current!);
         }
-      } catch { /* silent */ }
+      } catch { /* silent — job status stays stale until next poll */ }
     }, 2000);
   }, []);
 
@@ -84,20 +67,12 @@ export default function RepoPanel() {
     if (!urlInput.trim()) return;
     setLoading(true);
     try {
-      const form = new FormData();
-      form.append("github_url", urlInput.trim());
-      const res = await fetch(`${API_URL}/repo/upload`, { method: "POST", body: form });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail ?? "Upload failed");
-      }
-      const data: JobMeta = await res.json();
+      const data = await uploadRepoByUrl(urlInput.trim());
       setJob(data);
       setShowUpload(false);
       startPolling(data.job_id);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Upload failed";
-      setJob({ job_id: "", status: "failed", error_message: msg });
+      setJob({ job_id: "", status: "failed", error_message: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }
@@ -107,27 +82,19 @@ export default function RepoPanel() {
   const handleZipUpload = async (file: File) => {
     setLoading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`${API_URL}/repo/upload`, { method: "POST", body: form });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail ?? "Upload failed");
-      }
-      const data: JobMeta = await res.json();
+      const data = await uploadRepoZip(file);
       setJob(data);
       setShowUpload(false);
       startPolling(data.job_id);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Upload failed";
-      setJob({ job_id: "", status: "failed", error_message: msg });
+      setJob({ job_id: "", status: "failed", error_message: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }
   };
 
-  const progress = job ? STATUS_PROGRESS[job.status] : 0;
-  const isWorking = job && !["idle", "ready", "failed"].includes(job.status);
+  const progress = job?.status ? STATUS_PROGRESS[job.status] ?? 0 : 0;
+  const isWorking = job && !["idle", "ready", "failed"].includes(job.status ?? "");
 
   return (
     <>
@@ -137,7 +104,7 @@ export default function RepoPanel() {
         <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
           Repository
         </span>
-        {!job || job.status === "failed" ? (
+        {(!job || job.status === "failed") && (
           <button
             id="open-upload-btn"
             onClick={() => setShowUpload(true)}
@@ -147,10 +114,10 @@ export default function RepoPanel() {
           >
             <Upload className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
           </button>
-        ) : null}
+        )}
       </div>
 
-      {/* ── Upload Modal (inline, not overlay) ──────────────────────────── */}
+      {/* ── Upload Modal (inline) ────────────────────────────────────────── */}
       {showUpload && (
         <div className="p-4 border-b fade-up" style={{ borderColor: "var(--border)" }}>
           {/* Tab switcher */}
@@ -184,8 +151,8 @@ export default function RepoPanel() {
                 id="github-url-input"
                 type="url"
                 value={urlInput}
-                onChange={e => setUrlInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleUrlSubmit()}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit()}
                 placeholder="https://github.com/owner/repo"
                 className="w-full text-xs px-3 py-2 rounded-lg outline-none"
                 style={{
@@ -212,16 +179,18 @@ export default function RepoPanel() {
                   style={{ background: "var(--accent)", color: "white" }}
                   aria-label="Analyse repository URL"
                 >
-                  {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link className="w-3 h-3" />}
+                  {loading
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Link className="w-3 h-3" />}
                   Analyse
                 </button>
               </div>
             </div>
           ) : (
             <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
-              onDrop={e => {
+              onDrop={(e) => {
                 e.preventDefault();
                 setDragOver(false);
                 const f = e.dataTransfer.files[0];
@@ -236,7 +205,10 @@ export default function RepoPanel() {
               role="button"
               aria-label="Upload ZIP file"
             >
-              <Upload className="w-5 h-5" style={{ color: dragOver ? "var(--accent)" : "var(--text-muted)" }} />
+              <Upload
+                className="w-5 h-5"
+                style={{ color: dragOver ? "var(--accent)" : "var(--text-muted)" }}
+              />
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Drop ZIP here or click to browse
               </p>
@@ -246,7 +218,7 @@ export default function RepoPanel() {
                 accept=".zip"
                 className="hidden"
                 aria-hidden
-                onChange={e => {
+                onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) handleZipUpload(f);
                 }}
@@ -259,22 +231,21 @@ export default function RepoPanel() {
       {/* ── Job Status / Progress ────────────────────────────────────────── */}
       {job && (
         <div className="p-4 fade-up" style={{ borderBottom: "1px solid var(--border)" }}>
-          {/* Status row */}
           <div className="flex items-center gap-2 mb-2">
             {job.status === "ready"  && <CheckCircle2 className="w-4 h-4 flex-none" style={{ color: "var(--success)" }} />}
             {job.status === "failed" && <AlertCircle  className="w-4 h-4 flex-none" style={{ color: "var(--error)"   }} />}
             {isWorking               && <Loader2      className="w-4 h-4 flex-none animate-spin" style={{ color: "var(--accent)" }} />}
-
             <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
               {job.repo_name ?? "Repository"}
             </span>
           </div>
 
           <p className="text-[11px] mb-2" style={{ color: "var(--text-muted)" }}>
-            {job.status === "failed" ? job.error_message : STATUS_LABELS[job.status]}
+            {job.status === "failed"
+              ? job.error_message
+              : STATUS_LABELS[job.status ?? "idle"]}
           </p>
 
-          {/* Progress bar */}
           {job.status !== "failed" && (
             <div
               className="w-full rounded-full overflow-hidden"
@@ -295,7 +266,6 @@ export default function RepoPanel() {
             </div>
           )}
 
-          {/* Metadata pills */}
           {job.metadata && (
             <div className="flex flex-wrap gap-1 mt-2">
               <span className="text-[10px] px-2 py-0.5 rounded-full badge-vector">
@@ -304,7 +274,7 @@ export default function RepoPanel() {
               <span className="text-[10px] px-2 py-0.5 rounded-full badge-graph capitalize">
                 {job.metadata.primary_language}
               </span>
-              {job.metadata.frameworks.slice(0, 2).map(fw => (
+              {job.metadata.frameworks.slice(0, 2).map((fw) => (
                 <span key={fw} className="text-[10px] px-2 py-0.5 rounded-full badge-memory capitalize">
                   {fw}
                 </span>
@@ -316,11 +286,15 @@ export default function RepoPanel() {
 
       {/* ── File Tree (ready state) ──────────────────────────────────────── */}
       {job?.status === "ready" && job.metadata?.top_level_entries && (
-        <div className="flex-1 overflow-y-auto p-2 fade-up" role="tree" aria-label="Repository file tree">
+        <div
+          className="flex-1 overflow-y-auto p-2 fade-up"
+          role="tree"
+          aria-label="Repository file tree"
+        >
           <p className="text-[10px] uppercase tracking-widest px-2 mb-1" style={{ color: "var(--text-dim)" }}>
             Files
           </p>
-          {job.metadata.top_level_entries.map(entry => (
+          {job.metadata.top_level_entries.map((entry) => (
             <div
               key={entry}
               className="flex items-center gap-2 px-2 py-1 rounded-md text-xs cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
@@ -339,7 +313,7 @@ export default function RepoPanel() {
         </div>
       )}
 
-      {/* ── Empty State (no job yet) ─────────────────────────────────────── */}
+      {/* ── Empty State ──────────────────────────────────────────────────── */}
       {!job && !showUpload && (
         <div className="flex flex-col items-center justify-center flex-1 gap-4 p-6 text-center fade-up">
           <div

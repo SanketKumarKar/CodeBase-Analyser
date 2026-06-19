@@ -34,7 +34,7 @@ class IngestionJob(Base):
     repo_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     # Ingestion metadata (populated as the pipeline runs)
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    repo_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     # Error details if status == 'failed'
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -58,7 +58,7 @@ class IngestionJob(Base):
             "status": self.status,
             "repo_url": self.repo_url,
             "repo_name": self.repo_name,
-            "metadata": self.metadata,
+            "metadata": self.repo_metadata,
             "error_message": self.error_message,
             "total_files": self.total_files,
             "processed_files": self.processed_files,

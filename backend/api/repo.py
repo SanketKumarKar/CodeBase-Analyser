@@ -34,28 +34,29 @@ settings = get_settings()
 
 
 # ── Request / Response schemas ─────────────────────────────────────────────────
+# pydantic is used for data validation
 
 class UploadByURLRequest(BaseModel):
     github_url: str
 
-    @field_validator("github_url")
+    @field_validator("github_url") # validator is used to validate the github_url
     @classmethod
-    def validate_url(cls, v: str) -> str:
+    def validate_url(cls, v: str) -> str: # cls is the class itself, v is the value to be validated
         return validate_github_url(v)
 
 
-class JobResponse(BaseModel):
-    job_id: str
-    status: str
-    repo_url: Optional[str] = None
-    repo_name: Optional[str] = None
-    metadata: Optional[dict] = None
-    error_message: Optional[str] = None
-    total_files: Optional[int] = None
-    processed_files: Optional[int] = None
-    total_chunks: Optional[int] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+class JobResponse(BaseModel): # response model is used to define the response
+    job_id: str # unique identifier for the job
+    status: str # status of the job
+    repo_url: Optional[str] = None # url of the repository
+    repo_name: Optional[str] = None # name of the repository
+    metadata: Optional[dict] = None # metadata of the repository
+    error_message: Optional[str] = None # error message if the job failed
+    total_files: Optional[int] = None # total number of files in the repository
+    processed_files: Optional[int] = None # number of files processed in the repository
+    total_chunks: Optional[int] = None # total number of chunks in the repository
+    created_at: Optional[str] = None # time when the job was created
+    updated_at: Optional[str] = None # time when the job was updated
 
 
 # ── POST /repo/upload ──────────────────────────────────────────────────────────
@@ -175,3 +176,12 @@ async def repo_status(
             detail=f"Job '{job_id}' not found.",
         )
     return job.to_dict()
+    # {
+    #     "total_files": total_files,
+    #     "total_bytes": total_bytes,
+    #     "total_size_mb": round(total_bytes / (1024 * 1024), 2),
+    #     "languages": sorted_languages,
+    #     "primary_language": next(iter(sorted_languages), "unknown"),
+    #     "frameworks": detected_frameworks,
+    #     "top_level_entries": sorted(top_dirs),
+    # }

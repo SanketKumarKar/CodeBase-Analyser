@@ -30,6 +30,7 @@ from services.repo_service import (
 from workers.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
+
 settings = get_settings()
 
 
@@ -128,6 +129,7 @@ def _clone_repo(repo_url: str, target_dir: Path, timeout: int) -> None:
     max_retries=2,
     default_retry_delay=10,
 )
+
 def ingest_repository(
     self,
     job_id: str,
@@ -196,9 +198,22 @@ def ingest_repository(
             "metadata": metadata,
         })
 
-        # ── Stage 3: Parse (Phase 3 stub) ─────────────────────────────────
-        # parse_repository(repo_root, job_id) — implemented in Phase 3
-        log.info("Parse stage skipped (Phase 3 not yet implemented)")
+        # ── Stage 3: Parse code into chunks ───────────────────────────────
+        _update_db_status(job_id, "parsing", metadata={**metadata, "stage": "parsing"})
+        _emit_status(job_id, "parsing", {"message": "Parsing code into chunks…"})
+
+        from services.parser import parse_repository
+        chunks = parse_repository(repo_root, job_id)
+        total_chunks = len(chunks)
+
+        log.info("Parsing complete", total_chunks=total_chunks)
+        _update_db_status(job_id, "embedding",
+                          metadata={**metadata, "stage": "embedding"},
+                          total_chunks=total_chunks)
+        _emit_status(job_id, "parsing", {
+            "message": f"Parsed {total_chunks} chunks across {total_files} files",
+            "total_chunks": total_chunks,
+        })
 
         # ── Stage 4: Embed + Qdrant (Phase 4 stub) ────────────────────────
         # embed_and_store(chunks, job_id) — implemented in Phase 4

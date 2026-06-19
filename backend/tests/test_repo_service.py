@@ -80,8 +80,8 @@ def sample_repo(tmp_path: Path) -> Path:
 
 def test_extract_repo_metadata_file_count(sample_repo: Path):
     meta = extract_repo_metadata(sample_repo)
-    # node_modules should be skipped → 6 real files
-    assert meta["total_files"] == 6
+    # node_modules should be skipped → 7 real files (py×3, js×1, md×1, json×1, txt×1)
+    assert meta["total_files"] == 7
 
 
 def test_extract_repo_metadata_languages(sample_repo: Path):

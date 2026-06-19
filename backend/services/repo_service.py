@@ -12,14 +12,14 @@ Deliberately separated from the HTTP layer (api/repo.py) so it's
 independently testable and reusable by the Celery worker.
 """
 
-import hashlib
-import mimetypes
+import hashlib # it is used to calculate the hash of the files
+import mimetypes # it is used to determine the MIME type of a file
 import os
-import re
-import shutil
-import uuid
-import zipfile
-from pathlib import Path
+import re # it is used to match the regex of the files
+import shutil # it is used to remove the files Shell Utils
+import uuid # it is used to generate the UUID of the files
+import zipfile # it is used to extract the files
+from pathlib import Path 
 from typing import Any, Dict, Optional
 
 import structlog
@@ -102,7 +102,7 @@ async def create_job(
 ) -> IngestionJob:
     """Insert a new ingestion job in 'pending' state."""
     job = IngestionJob(
-        id=uuid.uuid4(),
+        id=uuid.uuid4(), #uuid4 is a function that generates a random UUID
         status="pending",
         repo_url=repo_url,
         repo_name=repo_name,
@@ -116,11 +116,11 @@ async def create_job(
 async def get_job(db: AsyncSession, job_id: str) -> Optional[IngestionJob]:
     """Fetch a job by UUID string. Returns None if not found."""
     try:
-        uid = uuid.UUID(job_id)
+        uid = uuid.UUID(job_id) # convert string to UUID
     except ValueError:
         return None
     result = await db.execute(select(IngestionJob).where(IngestionJob.id == uid))
-    return result.scalar_one_or_none()
+    return result.scalar_one_or_none() # returns the first result or None if no result
 
 
 async def update_job_status(
@@ -142,7 +142,7 @@ async def update_job_status(
 
     job.status = status
     if metadata is not None:
-        job.metadata = metadata
+        job.repo_metadata = metadata
     if error_message is not None:
         job.error_message = error_message
     if total_files is not None:
@@ -260,7 +260,7 @@ def validate_and_extract_zip(zip_path: Path, extract_to: Path) -> Path:
     Raises PermissionError for zip-slip attempts.
     """
     max_bytes = settings.max_repo_size_mb * 1024 * 1024
-    extract_to.mkdir(parents=True, exist_ok=True)
+    extract_to.mkdir(parents=True, exist_ok=True) # creates the directory if it doesn't exist
 
     with zipfile.ZipFile(zip_path, "r") as zf:
         # Check for zip-slip: every member path must resolve inside extract_to
