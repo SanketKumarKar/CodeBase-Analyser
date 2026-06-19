@@ -66,7 +66,48 @@ npm run dev
 
 ---
 
-## Phase 2 — Repository Ingestion Pipeline ⏳ NEXT
+## Phase 2 — Repository Ingestion Pipeline ✅ COMPLETE
+**Date:** 2026-06-19
+
+### What was built
+| Artifact | Description |
+|---|---|
+| `backend/services/repo_service.py` | GitHub URL validation, metadata extraction (language/framework detection), zip-slip-protected ZIP extraction, job CRUD |
+| `backend/workers/ingestion.py` | Full Celery pipeline: clone (shallow `--depth 1`), extract, scan, update Postgres + emit Socket.IO |
+| `backend/api/repo.py` | `POST /repo/upload` (URL or ZIP), `GET /repo/status/{job_id}`, streaming upload with size limit |
+| `backend/tests/test_repo_service.py` | 10 unit tests — URL validation, metadata extraction, zip-slip protection |
+| `frontend/components/layout/RepoPanel.tsx` | Full upload UI: URL input, drag-and-drop ZIP, 2s polling, animated progress bar, metadata pills, file tree |
+| `.gitattributes` | LF line endings enforced |
+
+### How to verify
+```bash
+# Start infra
+docker compose up qdrant redis postgres -d
+
+# Start backend
+cd backend && uvicorn main:socket_app --reload
+
+# Start Celery worker (separate terminal)
+celery -A workers.celery_app worker --loglevel=info
+
+# Upload a small real repo
+curl -X POST http://localhost:8000/repo/upload \
+  -F "github_url=https://github.com/tiangolo/fastapi"
+# → { "job_id": "...", "status": "pending" }
+
+# Poll status
+curl http://localhost:8000/repo/status/{job_id}
+# → eventually { "status": "ready", "metadata": { "total_files": ..., ... } }
+
+# Run unit tests
+cd backend && pytest tests/test_repo_service.py -v
+```
+
+### Deferred to Phase 3
+- Actual AST/Tree-sitter code parsing (parse stage is stubbed)
+
+---
+
 ## Phase 3 — Code Parsing Engine ⏳ PENDING
 ## Phase 4 — Embedding + Qdrant Storage ⏳ PENDING
 ## Phase 5 — Graph Construction (Neo4j) ⏳ PENDING

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # ── Application ────────────────────────────────────────────────────────────
     environment: str = Field(default="development")
     log_level: str = Field(default="INFO")
-    secret_key: str = Field(default="change-me-in-production")
+    secret_key: str = Field(default="My_Name_is_Sanky")
 
     # ── Ollama ─────────────────────────────────────────────────────────────────
     ollama_base_url: str = Field(default="http://localhost:11434")
