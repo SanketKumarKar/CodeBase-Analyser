@@ -1,0 +1,170 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design Tokens ───────────────────────────────────────────────────────── */
+:root {
+  --bg-base:       #0a0a0f;
+  --bg-panel:      #0f0f17;
+  --bg-elevated:   #16161f;
+  --bg-hover:      #1e1e2a;
+  --border:        #1e1e30;
+  --border-bright: #2e2e45;
+
+  --accent:        #6c63ff;
+  --accent-dim:    #4c46b8;
+  --accent-glow:   rgba(108, 99, 255, 0.25);
+
+  --text-primary:  #e8e8f0;
+  --text-muted:    #6b6b85;
+  --text-dim:      #3d3d55;
+
+  --success:       #22d3a5;
+  --warning:       #f59e0b;
+  --error:         #f43f5e;
+  --info:          #38bdf8;
+
+  --panel-header:  48px;
+  --sidebar-width: 260px;
+  --graph-width:   320px;
+}
+
+/* ── Base Reset ──────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border-bright); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+/* ── Glassmorphism Card ──────────────────────────────────────────────────── */
+.glass {
+  background: rgba(15, 15, 23, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* ── Glow Effects ────────────────────────────────────────────────────────── */
+.glow-accent {
+  box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(108, 99, 255, 0.1);
+}
+
+.text-glow {
+  text-shadow: 0 0 20px var(--accent-glow);
+}
+
+/* ── Gradient Text ───────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #6c63ff 0%, #a78bfa 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Animated gradient border ────────────────────────────────────────────── */
+@keyframes border-spin {
+  from { --angle: 0deg; }
+  to   { --angle: 360deg; }
+}
+
+/* ── Panel base styles ───────────────────────────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  height: var(--panel-header);
+  min-height: var(--panel-header);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  gap: 8px;
+}
+
+/* ── Status dot pulse ────────────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.status-dot.ok      { background: var(--success); }
+.status-dot.error   { background: var(--error); }
+.status-dot.loading { background: var(--warning); }
+
+/* ── Chat bubble ─────────────────────────────────────────────────────────── */
+.chat-bubble-user {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+  border-radius: 16px 16px 4px 16px;
+}
+
+.chat-bubble-agent {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 16px 4px;
+}
+
+/* ── Source badges ───────────────────────────────────────────────────────── */
+.badge-vector { background: rgba(108, 99, 255, 0.2); color: #a78bfa; border: 1px solid rgba(108, 99, 255, 0.3); }
+.badge-graph  { background: rgba(34, 211, 165, 0.2); color: #22d3a5; border: 1px solid rgba(34, 211, 165, 0.3); }
+.badge-memory { background: rgba(251, 146, 60, 0.2); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.3); }
+
+/* ── Micro-animations ────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+.fade-up  { animation: fade-up 0.3s ease forwards; }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: 4px;
+}
+
+/* ── Typing indicator ────────────────────────────────────────────────────── */
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%            { transform: translateY(-6px); }
+}
+
+.typing-dot {
+  width: 5px; height: 5px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  animation: bounce-dot 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.30s; }
